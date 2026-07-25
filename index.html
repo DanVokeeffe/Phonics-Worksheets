@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sound Sheets — Phonics Worksheet Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Atkinson+Hyperlegible:wght@400;700&family=Architects+Daughter&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="chalkboard">
+    <div class="chalk-tray">
+      <span class="chalk chalk-yellow"></span>
+      <span class="chalk chalk-red"></span>
+      <span class="chalk chalk-blue"></span>
+    </div>
+    <p class="chalk-eyebrow">a print-and-go phonics generator</p>
+    <h1 class="chalk-title">Sound Sheets</h1>
+    <p class="chalk-sub">Type a sound. Pick a page count. Get a fresh stack of phonics worksheets — every time.</p>
+  </div>
+</header>
+
+<main>
+  <section class="control-card" id="generator">
+    <div class="control-row">
+      <label for="soundInput">
+        Focus sound or digraph
+        <span class="hint">e.g. <button type="button" class="hint-fill" data-fill="ai">ai</button>, <button type="button" class="hint-fill" data-fill="ew/ue">ew/ue</button>, <button type="button" class="hint-fill" data-fill="a_e">a_e</button></span>
+      </label>
+      <input id="soundInput" list="patternList" type="text" placeholder="Try “sh”, “oa”, or “ew/ue”…" autocomplete="off">
+      <datalist id="patternList"></datalist>
+    </div>
+
+    <div class="control-row control-row-split">
+      <div>
+        <label for="pageCount">Number of pages</label>
+        <input id="pageCount" type="number" min="1" max="10" value="5">
+      </div>
+      <div class="generate-btn-wrap">
+        <button id="generateBtn" class="generate-btn">Generate worksheets</button>
+      </div>
+    </div>
+
+    <p id="errorMsg" class="error-msg" hidden></p>
+
+    <details class="pattern-list-details">
+      <summary id="patternCountSummary">See all available sounds &amp; digraphs</summary>
+      <div id="allPatterns" class="pattern-chip-wrap"></div>
+    </details>
+  </section>
+
+  <section id="resultsSection" class="results-section" hidden>
+    <div class="results-toolbar no-print">
+      <p id="resultsSummary"></p>
+      <button id="printBtn" class="print-btn">🖨️ Print / Save as PDF</button>
+    </div>
+    <div id="pagesWrap"></div>
+  </section>
+</main>
+
+<footer class="site-footer no-print">
+  <p>Sound Sheets is a static, offline worksheet generator — nothing you type ever leaves your browser.</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
