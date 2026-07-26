@@ -141,7 +141,9 @@ function combinedWordList(patternKeys) {
   let words = [];
   patternKeys.forEach(key => {
     const p = PATTERNS[key];
-    words = words.concat(p.words.map(w => ({ ...w, grapheme: p.grapheme, patternLabel: p.label })));
+    const extra = (typeof EXTRA_WORDS !== "undefined" && EXTRA_WORDS[key]) || [];
+    const allWords = p.words.concat(extra);
+    words = words.concat(allWords.map(w => ({ ...w, grapheme: p.grapheme, patternLabel: p.label })));
   });
   return words;
 }
@@ -336,18 +338,19 @@ function activityWordBuilding(words, patternLabel, grapheme) {
     <div class="ws-write-grid">${Array.from({length: 7}).map(() => `<span class="line"></span>`).join("")}</div>`);
 }
 
-// ---------- ACTIVITY 8: Story Cloze ----------
-function activityStoryCloze(patternLabel, key) {
-  const storyRaw = STORIES[key];
-  const wordsUsed = [];
-  const displayText = storyRaw.replace(/\*\*(.+?)\*\*/g, (m, w) => { wordsUsed.push(w); return "________"; });
-  const box = wordBoxHtml(shuffle(wordsUsed));
-  return pageHeader(`Story Time: ${patternLabel}`,
-    "Read the story. Choose the best word from the box to fill each gap.") +
-    wsBody(box + `
-    <p class="ws-story">${esc(displayText).replace(/________/g, '<span class="story-blank"></span>')}</p>
-    <p class="ws-instructions ws-subheading">Draw a picture about the story in the box below.</p>
-    <div class="draw-box"></div>`);
+// ---------- ACTIVITY 8: Choose the Right Word ----------
+function activityChooseRight(words, patternLabel) {
+  const chosen = pick(words, 8);
+  const rows = chosen.map((w, i) => {
+    const pool = DISTRACTORS.filter(d => d.toLowerCase() !== w.word.toLowerCase());
+    const distractor = pick(pool, 1)[0];
+    const options = shuffle([w.word, distractor]);
+    const sentence = esc(w.sentence.replace("___", `(${options[0]} / ${options[1]})`));
+    return wsRow(i + 1, `${sentence}<span class="write-line"></span>`, "choose-row");
+  }).join("");
+  return pageHeader(`Choose the Right Word: ${patternLabel}`,
+    "Read each sentence. Circle the word in brackets that correctly completes it, then write it on the line.") +
+    wsBody(wsRows(rows));
 }
 
 // ---------- ACTIVITY 9: Read and Circle ----------
@@ -386,7 +389,7 @@ const ACTIVITIES = [
   { key: "missing", label: "Missing Letters", fn: (w, p) => activityMissingLetters(w, p.label, p.grapheme) },
   { key: "unscramble", label: "Unscramble the Sentence", fn: (w, p) => activityUnscramble(w, p.label) },
   { key: "build", label: "Word Building", fn: (w, p) => activityWordBuilding(w, p.label, p.grapheme) },
-  { key: "story", label: "Story Time", fn: (w, p, k) => activityStoryCloze(p.label, k) },
+  { key: "choose", label: "Choose the Right Word", fn: (w, p) => activityChooseRight(w, p.label) },
   { key: "circle", label: "Read and Circle", fn: (w, p) => activityCircleWrite(w, p.label, p.grapheme) },
   { key: "writeown", label: "Write Your Own Sentence", fn: (w, p) => activityWriteOwn(w, p.label) },
 ];
@@ -409,18 +412,17 @@ function generateWorksheets(input, numPages) {
   const pages = [];
   for (let i = 0; i < numPages; i++) {
     const activity = order[i % order.length];
-    // Missing letters / word building / circle / sort / story all need a
-    // single, unambiguous grapheme (and, for story, a real single-pattern
-    // narrative) — so when multiple patterns were requested, rotate through
-    // them individually for these activities rather than blending word lists.
+    // Missing letters / word building / circle / sort need a single,
+    // unambiguous grapheme — so when multiple patterns were requested,
+    // rotate through them individually for these activities rather than
+    // blending word lists together.
     const singleKey = keys[i % keys.length];
     const singlePattern = PATTERNS[singleKey];
-    const useSingle = ["missing", "build", "circle", "sort", "story"].includes(activity.key) && keys.length > 1;
+    const useSingle = ["missing", "build", "circle", "sort"].includes(activity.key) && keys.length > 1;
     const patternForActivity = useSingle ? singlePattern : pseudoPattern;
     const wordsForActivity = useSingle ? combinedWordList([singleKey]) : words;
-    const keyForActivity = activity.key === "story" ? singleKey : undefined;
     try {
-      pages.push({ title: activity.label, html: activity.fn(wordsForActivity, patternForActivity, keyForActivity) });
+      pages.push({ title: activity.label, html: activity.fn(wordsForActivity, patternForActivity) });
     } catch (e) {
       pages.push({ title: activity.label, html: `<p>Could not generate this page.</p>` });
     }
