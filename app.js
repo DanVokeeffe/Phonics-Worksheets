@@ -337,14 +337,15 @@ function activityWordBuilding(words, patternLabel, grapheme) {
 }
 
 // ---------- ACTIVITY 8: Story Cloze ----------
-function activityStoryCloze(words, patternLabel) {
-  const chosen = pick(words, 6);
-  const box = wordBoxHtml(chosen.map(w => w.word));
-  const story = chosen.map(w => w.sentence.replace("___", "________")).join(" ");
+function activityStoryCloze(patternLabel, key) {
+  const storyRaw = STORIES[key];
+  const wordsUsed = [];
+  const displayText = storyRaw.replace(/\*\*(.+?)\*\*/g, (m, w) => { wordsUsed.push(w); return "________"; });
+  const box = wordBoxHtml(shuffle(wordsUsed));
   return pageHeader(`Story Time: ${patternLabel}`,
     "Read the story. Choose the best word from the box to fill each gap.") +
     wsBody(box + `
-    <p class="ws-story">${esc(story).replace(/________/g, '<span class="story-blank"></span>')}</p>
+    <p class="ws-story">${esc(displayText).replace(/________/g, '<span class="story-blank"></span>')}</p>
     <p class="ws-instructions ws-subheading">Draw a picture about the story in the box below.</p>
     <div class="draw-box"></div>`);
 }
@@ -385,7 +386,7 @@ const ACTIVITIES = [
   { key: "missing", label: "Missing Letters", fn: (w, p) => activityMissingLetters(w, p.label, p.grapheme) },
   { key: "unscramble", label: "Unscramble the Sentence", fn: (w, p) => activityUnscramble(w, p.label) },
   { key: "build", label: "Word Building", fn: (w, p) => activityWordBuilding(w, p.label, p.grapheme) },
-  { key: "story", label: "Story Time", fn: (w, p) => activityStoryCloze(w, p.label) },
+  { key: "story", label: "Story Time", fn: (w, p, k) => activityStoryCloze(p.label, k) },
   { key: "circle", label: "Read and Circle", fn: (w, p) => activityCircleWrite(w, p.label, p.grapheme) },
   { key: "writeown", label: "Write Your Own Sentence", fn: (w, p) => activityWriteOwn(w, p.label) },
 ];
@@ -408,15 +409,18 @@ function generateWorksheets(input, numPages) {
   const pages = [];
   for (let i = 0; i < numPages; i++) {
     const activity = order[i % order.length];
-    // for missing-letters/word-building/circle/sort which need a single grapheme,
-    // rotate through the individual patterns if multiple were given
+    // Missing letters / word building / circle / sort / story all need a
+    // single, unambiguous grapheme (and, for story, a real single-pattern
+    // narrative) — so when multiple patterns were requested, rotate through
+    // them individually for these activities rather than blending word lists.
     const singleKey = keys[i % keys.length];
     const singlePattern = PATTERNS[singleKey];
-    const useSingle = ["missing", "build", "circle", "sort"].includes(activity.key) && keys.length > 1;
+    const useSingle = ["missing", "build", "circle", "sort", "story"].includes(activity.key) && keys.length > 1;
     const patternForActivity = useSingle ? singlePattern : pseudoPattern;
     const wordsForActivity = useSingle ? combinedWordList([singleKey]) : words;
+    const keyForActivity = activity.key === "story" ? singleKey : undefined;
     try {
-      pages.push({ title: activity.label, html: activity.fn(wordsForActivity, patternForActivity) });
+      pages.push({ title: activity.label, html: activity.fn(wordsForActivity, patternForActivity, keyForActivity) });
     } catch (e) {
       pages.push({ title: activity.label, html: `<p>Could not generate this page.</p>` });
     }
