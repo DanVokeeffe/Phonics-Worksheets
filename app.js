@@ -148,69 +148,87 @@ function combinedWordList(patternKeys) {
   return words;
 }
 
-// ---------- page chrome ----------
-function pageHeader(title, instructions) {
+// =====================================================================
+// PAGE SHELL — shared program identity, per the master design system.
+// Every activity renders inside this exact rhythm:
+// PROGRAM BAND -> NAME/DATE -> FOCUS+ACTIVITY CHIPS -> TITLE -> PROMPT -> BODY -> FOOTER
+// =====================================================================
+const PROGRAM_NAME = "[Program Name]";
+
+function pageShell({ focusLabel, activityLabel, title, instructions, bodyHtml }) {
   return `
-    <div class="ws-header">
-      <div class="ws-name-line"><span>Name:</span><span class="line"></span><span>Date:</span><span class="line short"></span></div>
-      <h2>${esc(title)}</h2>
+    <div class="program-band">
+      <span>${esc(PROGRAM_NAME)}</span>
+      <span>PHONICS</span>
     </div>
-    <p class="ws-instructions">${esc(instructions)}</p>
+    <div class="ws-shell-top">
+      <div class="student-info">
+        <div class="info-field"><span>Name</span><span class="info-line"></span></div>
+        <div class="info-field"><span>Date</span><span class="info-line"></span></div>
+      </div>
+      <div class="focus-row">
+        <span class="chip focus-chip auto-wrap">${esc(focusLabel)}</span>
+        <span class="chip phonics-activity-chip auto-wrap">${esc(activityLabel)}</span>
+      </div>
+      <h1>${esc(title)}</h1>
+      <div class="title-rule"></div>
+      <p class="prompt">${esc(instructions)}</p>
+    </div>
+    <div class="ws-body">${bodyHtml}</div>
+    <div class="footer">
+      <span>${esc(PROGRAM_NAME)}</span>
+      <span>Sound Sheets</span>
+      <span>Phonics</span>
+    </div>
   `;
 }
 
-// Word box with real spaces between chips so long lists can wrap onto
-// multiple lines instead of overflowing the dashed border.
-function wordBoxHtml(words) {
-  return `<div class="word-box">${words.map(w => `<span class="word-chip">${esc(w)}</span>`).join('<span class="word-dot">&bull;</span>')}</div>`;
+// Word bank card with pills that wrap predictably (content-aware — no fixed widths)
+function wordBankHtml(words) {
+  return `<div class="card word-bank" style="padding:3mm 4mm; margin-bottom:4mm;">${words.map(w => `<span class="word-pill auto-wrap">${esc(w)}</span>`).join("")}</div>`;
 }
 
-// Wraps everything below the header/instructions. This is the flex child
-// that stretches to fill whatever vertical space is left on the page.
-function wsBody(innerHtml) {
-  return `<div class="ws-body">${innerHtml}</div>`;
-}
-
-// A numbered, evenly-spaced list of rows that stretches across the full
-// remaining page height (rows spread out via flexbox rather than clumping
-// at the top), replacing native <ol> numbering with manual numbers so the
-// flex layout doesn't strip the browser's auto-generated markers.
 function wsRows(rowsHtml, extraClass = "") {
   return `<div class="ws-rows ${extraClass}">${rowsHtml}</div>`;
 }
 function wsRow(num, contentHtml, extraClass = "") {
-  return `<div class="ws-row ${extraClass}"><span class="ws-row-num">${num}.</span><span class="ws-row-main">${contentHtml}</span></div>`;
+  return `<div class="ws-row ${extraClass}"><span class="ws-row-num">${num}.</span><span class="ws-row-main auto-wrap">${contentHtml}</span></div>`;
 }
 
 // ---------- ACTIVITY 1: Trace, Read, Write ----------
 function activityTraceWrite(words, patternLabel) {
-  const chosen = pick(words, 8);
+  const chosen = pick(words, 6);
+  const header = `
+    <div class="trace-cell trace-head model-head">Trace</div>
+    <div class="trace-cell trace-head">Write</div>
+    <div class="trace-cell trace-head">Write</div>
+    <div class="trace-cell trace-head">Write</div>`;
   const rows = chosen.map(w => `
-    <tr>
-      <td class="trace-cell">${esc(w.word)}</td>
-      <td class="write-cell"></td>
-      <td class="write-cell"></td>
-      <td class="write-cell"></td>
-    </tr>`).join("");
-  return pageHeader(`Trace, Read, Write: ${patternLabel}`,
-    "Trace the word, then write it twice more by yourself. Read each word to a partner.") +
-    wsBody(`
-    <div class="table-fill-wrap">
-      <table class="ws-table trace-table">
-        <thead><tr><th>Trace</th><th>Write</th><th>Write</th><th>Write</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`);
+    <div class="trace-cell model">${esc(w.word)}</div>
+    <div class="trace-cell write"><span class="write-line"></span></div>
+    <div class="trace-cell write"><span class="write-line"></span></div>
+    <div class="trace-cell write"><span class="write-line"></span></div>`).join("");
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Trace, Read, Write",
+    title: "Trace, Read, Write",
+    instructions: "Trace the word, then write it twice more by yourself. Read each word to a partner.",
+    bodyHtml: `<div class="trace-grid">${header}${rows}</div>`
+  });
 }
 
 // ---------- ACTIVITY 2: Fill in the Blank ----------
 function activityFillBlank(words, patternLabel) {
   const chosen = pick(words, 8);
-  const box = wordBoxHtml(chosen.map(w => w.word));
+  const box = wordBankHtml(chosen.map(w => w.word));
   const rows = chosen.map((w, i) => wsRow(i + 1, esc(w.sentence.replace("___", "______________")))).join("");
-  return pageHeader(`Fill in the Blank: ${patternLabel}`,
-    "Choose a word from the box to complete each sentence. Write it on the line.") +
-    wsBody(box + wsRows(rows));
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Fill in the Blank",
+    title: "Fill in the Blank",
+    instructions: "Choose a word from the box to complete each sentence. Write it on the line.",
+    bodyHtml: box + wsRows(rows)
+  });
 }
 
 // ---------- ACTIVITY 3: Word Sort (target vs trick words) ----------
@@ -220,17 +238,20 @@ function activityWordSort(words, patternLabel, grapheme) {
   const safeDistractors = DISTRACTORS.filter(d => !d.toLowerCase().includes(g));
   const tricky = pick(safeDistractors, 7);
   const all = shuffle([...chosen, ...tricky]);
-  const box = wordBoxHtml(all);
-  const rows = Array.from({ length: 7 }).map(() => `<tr><td class="sort-cell"></td><td class="sort-cell"></td></tr>`).join("");
-  return pageHeader(`Word Sort: ${patternLabel}`,
-    `Read each word in the box. Sort it into the correct column: words with '${grapheme.replace("_"," ")}' or words without it.`) +
-    wsBody(box + `
-    <div class="table-fill-wrap">
-      <table class="ws-table sort-table">
-        <thead><tr><th>Has '${esc(grapheme.replace("_"," "))}'</th><th>Does NOT have '${esc(grapheme.replace("_"," "))}'</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`);
+  const box = wordBankHtml(all);
+  const linesA = Array.from({ length: 7 }).map(() => `<span class="write-line"></span>`).join("");
+  const linesB = Array.from({ length: 7 }).map(() => `<span class="write-line"></span>`).join("");
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Word Sort",
+    title: "Word Sort",
+    instructions: `Read each word in the box. Sort it into the correct column: words with '${grapheme.replace("_"," ")}' or words without it.`,
+    bodyHtml: box + `
+      <div class="sort-columns">
+        <div class="sort-col"><div class="sort-col-head">Has '${esc(grapheme.replace("_"," "))}'</div><div class="sort-col-body">${linesA}</div></div>
+        <div class="sort-col"><div class="sort-col-head">Does NOT have it</div><div class="sort-col-body">${linesB}</div></div>
+      </div>`
+  });
 }
 
 // ---------- ACTIVITY 4: Word Search ----------
@@ -245,7 +266,6 @@ function buildWordSearchGrid(size, wordList) {
       const dir = dirs[Math.floor(Math.random() * dirs.length)];
       const row = Math.floor(Math.random() * (size)) ;
       const col = Math.floor(Math.random() * (size));
-      // validate path stays in bounds
       const endRow = row + dir[0] * (word.length - 1);
       const endCol = col + dir[1] * (word.length - 1);
       if (endRow < 0 || endRow >= size || endCol < 0 || endCol >= size) continue;
@@ -275,50 +295,61 @@ function activityWordSearch(words, patternLabel) {
   const chosen = pick(words, 8).map(w => w.word);
   const size = 12;
   const { grid, placed } = buildWordSearchGrid(size, chosen);
-  // CSS grid instead of a <table> so cells scale to fill the page width/height
-  // responsively, rather than being stuck at a fixed pixel size.
   const cells = grid.map(row => row.map(ch => `<div class="ws-grid-cell">${ch}</div>`).join("")).join("");
-  return pageHeader(`Word Search: ${patternLabel}`,
-    "Find and circle each word from the list in the puzzle below.") +
-    wsBody(`
-    <div class="wordsearch-wrap">
-      <div class="wordsearch-grid" style="grid-template-columns: repeat(${size}, 1fr); grid-template-rows: repeat(${size}, 1fr);">${cells}</div>
-      <div class="wordsearch-list">
-        <strong>Find these words:</strong>
-        <ul>${placed.map(w => `<li>${esc(w.toLowerCase())}</li>`).join("")}</ul>
-      </div>
-    </div>`);
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Word Search",
+    title: "Word Search",
+    instructions: "Find and circle each word from the list in the puzzle below.",
+    bodyHtml: `
+      <div class="wordsearch-wrap">
+        <div class="wordsearch-grid" style="grid-template-columns: repeat(${size}, 1fr); grid-template-rows: repeat(${size}, 1fr);">${cells}</div>
+        <div class="wordsearch-list">
+          <div class="wordsearch-list-head">Find these words:</div>
+          <div class="wordsearch-list-grid">${placed.map(w => `<span class="word-item">${esc(w.toLowerCase())}</span>`).join("")}</div>
+        </div>
+      </div>`
+  });
 }
 
 // ---------- ACTIVITY 5: Missing Letters ----------
 function activityMissingLetters(words, patternLabel, grapheme) {
-  const chosen = pick(words, 10);
-  const rows = chosen.map((w, i) => {
+  const chosen = pick(words, 8);
+  const cards = chosen.map(w => {
     const segs = blankWordSegments(w.word, grapheme);
     const html = segs.map(s => s.blank
       ? `<span class="ml-blank">${"_".repeat(Math.max(s.text.length, 2))}</span>`
-      : `<span class="ml-part">${esc(s.text)}</span>`
+      : `<span>${esc(s.text)}</span>`
     ).join("");
-    return wsRow(i + 1, html, "missing-letters-row");
+    return `<div class="ml-card">${html}</div>`;
   }).join("");
-  return pageHeader(`Missing Letters: ${patternLabel}`,
-    `Fill in the missing letters '${grapheme.replace("_"," ")}' to complete each word. Write the whole word, then read it aloud.`) +
-    wsBody(wsRows(rows));
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Missing Letters",
+    title: "Missing Letters",
+    instructions: `Fill in the missing letters '${grapheme.replace("_"," ")}' to complete each word. Write the whole word, then read it aloud.`,
+    bodyHtml: `<div class="missing-letters-grid">${cards}</div>`
+  });
 }
 
 // ---------- ACTIVITY 6: Sentence Unscramble ----------
 function activityUnscramble(words, patternLabel) {
-  const chosen = pick(words, 6);
+  const chosen = pick(words, 5);
   const rows = chosen.map((w, i) => {
     const sentence = w.sentence.replace("___", w.word);
     const clean = sentence.replace(/[.?!]$/, "");
     const tokens = shuffle(clean.split(" "));
-    const content = `<p class="unscramble-jumbled">${tokens.map(esc).join(" &nbsp; ")}</p><p class="write-line"></p>`;
+    const pills = tokens.map(t => `<span class="word-pill auto-wrap">${esc(t)}</span>`).join("");
+    const content = `<div class="unscramble-pills">${pills}</div><span class="write-line"></span>`;
     return wsRow(i + 1, content, "unscramble-row");
   }).join("");
-  return pageHeader(`Unscramble the Sentence: ${patternLabel}`,
-    "Put the words in the right order to make a sentence that makes sense. Write it on the line.") +
-    wsBody(wsRows(rows));
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Unscramble the Sentence",
+    title: "Unscramble the Sentence",
+    instructions: "Put the words in the right order to make a sentence that makes sense. Write it on the line.",
+    bodyHtml: wsRows(rows)
+  });
 }
 
 // ---------- ACTIVITY 7: Word Building ----------
@@ -327,58 +358,95 @@ function activityWordBuilding(words, patternLabel, grapheme) {
   const parts = chosen.map(w => splitOnsetRime(w.word, grapheme)).filter(Boolean);
   const onsets = shuffle(parts.map(p => p.onset));
   const rimes = shuffle(parts.map(p => p.rime));
-  return pageHeader(`Word Building: ${patternLabel}`,
-    "Draw a line to join a beginning part to an ending part to build a real word. Write the words you made below.") +
-    wsBody(`
-    <div class="wordbuild-wrap">
-      <div class="wordbuild-col">${onsets.map(o => `<div class="wordbuild-chip">${esc(o)}</div>`).join("")}</div>
-      <div class="wordbuild-col">${rimes.map(r => `<div class="wordbuild-chip">${esc(r)}</div>`).join("")}</div>
-    </div>
-    <p class="ws-instructions ws-subheading">Words I built:</p>
-    <div class="ws-write-grid">${Array.from({length: 7}).map(() => `<span class="line"></span>`).join("")}</div>`);
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Word Building",
+    title: "Word Building",
+    instructions: "Draw a line to join a beginning part to an ending part to build a real word. Write the words you made below.",
+    bodyHtml: `
+      <div class="wordbuild-wrap">
+        <div class="wordbuild-col">
+          <div class="wordbuild-col-head">Beginnings</div>
+          ${onsets.map(o => `<div class="wordbuild-chip auto-wrap">${esc(o)}</div>`).join("")}
+        </div>
+        <div class="wordbuild-col">
+          <div class="wordbuild-col-head">Endings</div>
+          ${rimes.map(r => `<div class="wordbuild-chip auto-wrap">${esc(r)}</div>`).join("")}
+        </div>
+      </div>
+      <p class="ws-subheading">Words I built:</p>
+      <div class="ws-write-grid">${Array.from({length: 7}).map(() => `<span class="write-line"></span>`).join("")}</div>`
+  });
 }
 
 // ---------- ACTIVITY 8: Choose the Right Word ----------
 function activityChooseRight(words, patternLabel) {
-  const chosen = pick(words, 8);
+  const chosen = pick(words, 7);
   const rows = chosen.map((w, i) => {
     const pool = DISTRACTORS.filter(d => d.toLowerCase() !== w.word.toLowerCase());
     const distractor = pick(pool, 1)[0];
     const options = shuffle([w.word, distractor]);
-    const sentence = esc(w.sentence.replace("___", `(${options[0]} / ${options[1]})`));
-    return wsRow(i + 1, `${sentence}<span class="write-line"></span>`, "choose-row");
+    const sentence = esc(w.sentence.replace("___", "______"));
+    const content = `
+      <div class="choice-row">
+        <span class="choice-text auto-wrap">${sentence}</span>
+        <span class="word-pill">${esc(options[0])}</span>
+        <span class="word-pill">${esc(options[1])}</span>
+      </div>
+      <span class="write-line"></span>`;
+    return wsRow(i + 1, content, "choice-row-wrap");
   }).join("");
-  return pageHeader(`Choose the Right Word: ${patternLabel}`,
-    "Read each sentence. Circle the word in brackets that correctly completes it, then write it on the line.") +
-    wsBody(wsRows(rows));
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Choose the Right Word",
+    title: "Choose the Right Word",
+    instructions: "Read each sentence. Circle the word in brackets that correctly completes it, then write it on the line.",
+    bodyHtml: wsRows(rows)
+  });
 }
 
 // ---------- ACTIVITY 9: Read and Circle ----------
 function activityCircleWrite(words, patternLabel, grapheme) {
-  const chosen = pick(words, 6);
+  const chosen = pick(words, 5);
   const rows = chosen.map((w, i) => {
     const sentence = w.sentence.replace("___", `<u>${esc(w.word)}</u>`);
-    const content = `<span class="circle-sentence">${sentence}</span><span class="write-line"></span>`;
-    return wsRow(i + 1, content, "circle-row");
+    return wsRow(i + 1, `<span class="auto-wrap">${sentence}</span>`, "circle-row");
   }).join("");
-  return pageHeader(`Read and Circle: ${patternLabel}`,
-    `Read each sentence. Circle the word with '${grapheme.replace("_"," ")}' in it. Rewrite the sentences below and draw one picture.`) +
-    wsBody(`
-    ${wsRows(rows, "circle-rows")}
-    <p class="ws-instructions ws-subheading">Draw one picture about the sentences:</p>
-    <div class="draw-box draw-box-grow"></div>`);
+  const rewriteLines = chosen.map(() => `<span class="write-line"></span>`).join("");
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Read and Circle",
+    title: "Read and Circle",
+    instructions: `Read each sentence. Circle the word with '${grapheme.replace("_"," ")}' in it.`,
+    bodyHtml: `
+      ${wsRows(rows, "compact")}
+      <div class="circle-panels">
+        <div class="circle-panel rewrite">
+          <div class="circle-panel-head">Rewrite the sentences</div>
+          <div class="circle-panel-body">${rewriteLines}</div>
+        </div>
+        <div class="circle-panel draw">
+          <div class="circle-panel-head">Draw a picture</div>
+          <div class="circle-panel-body"></div>
+        </div>
+      </div>`
+  });
 }
 
 // ---------- ACTIVITY 10: Write Your Own Sentence ----------
 function activityWriteOwn(words, patternLabel) {
   const chosen = pick(words, 6);
   const rows = chosen.map((w, i) => {
-    const content = `<span class="wo-word">${esc(w.word)}</span><span class="write-line"></span>`;
+    const content = `<span class="word-pill">${esc(w.word)}</span><span class="write-line"></span>`;
     return wsRow(i + 1, content, "write-own-row");
   }).join("");
-  return pageHeader(`Write Your Own Sentence: ${patternLabel}`,
-    "Read each word. Write your own sentence using that word. Remember capital letters and full stops!") +
-    wsBody(wsRows(rows));
+  return pageShell({
+    focusLabel: patternLabel,
+    activityLabel: "Write Your Own Sentence",
+    title: "Write Your Own Sentence",
+    instructions: "Read each word. Write your own sentence using that word. Remember capital letters and full stops!",
+    bodyHtml: wsRows(rows)
+  });
 }
 
 const ACTIVITIES = [
@@ -412,10 +480,6 @@ function generateWorksheets(input, numPages) {
   const pages = [];
   for (let i = 0; i < numPages; i++) {
     const activity = order[i % order.length];
-    // Missing letters / word building / circle / sort need a single,
-    // unambiguous grapheme — so when multiple patterns were requested,
-    // rotate through them individually for these activities rather than
-    // blending word lists together.
     const singleKey = keys[i % keys.length];
     const singlePattern = PATTERNS[singleKey];
     const useSingle = ["missing", "build", "circle", "sort"].includes(activity.key) && keys.length > 1;
